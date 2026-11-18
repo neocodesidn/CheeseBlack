@@ -1,0 +1,41 @@
+{
+  "panels": {
+    "80ad397d19": {
+      "id": "80ad397d19",
+      "guildId": "1557080385865785404",
+      "channelId": "1562114117471436840",
+      "messageId": "1562116861611614268",
+      "roleIds": [
+        "1561340979821285436"
+      ],
+      "title": "TAKE ROLE",
+      "description": "[ID] Silakan klik tombol di bawah ini untuk mendapatkan peran (role) Anda. Sistem akan secara otomatis membuka akses ke saluran (channel) khusus yang sesuai.\n[EN] Please click the button below to claim your role. The system will automatically grant you access to the corresponding channels.",
+      "createdAt": 1792508081923
+    },
+    "2bbeb4934a": {
+      "id": "2bbeb4934a",
+      "guildId": "1557080385865785404",
+      "channelId": "1562114117471436840",
+      "messageId": "1562134739480215695",
+      "roleIds": [
+        "1561340979821285436"
+      ],
+      "title": "TAKE ROLE",
+      "description": "[ID] Silakan klik tombol di bawah ini untuk mendapatkan peran (role) Anda. Sistem akan secara otomatis membuka akses ke saluran (channel) khusus yang sesuai.\n\n[EN] Please click the button below to claim your role. The system will automatically grant you access to the corresponding channels.",
+      "createdAt": 1792512344256
+    },
+    "0f18dce826": {
+      "id": "0f18dce826",
+      "guildId": "1557080385865785404",
+      "channelId": "1562114117471436840",
+      "messageId": "1562853063373619323",
+      "roleIds": [
+        "1561340979821285436"
+      ],
+      "title": "TAKE ROLE",
+      "description": "[ID] Silakan klik tombol di bawah ini untuk mendapatkan peran (role) Anda. Sistem akan secara otomatis membuka akses ke saluran (channel) khusus yang sesuai.\n\n[EN] Please click the button below to claim your role. The system will automatically grant you access to the corresponding channels.",
+      "createdAt": 1792683606054,
+      "updatedAt": 1792920219832
+    }
+  }
+}

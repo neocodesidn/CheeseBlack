@@ -1,0 +1,12 @@
+{
+  "1557080385865785404": {
+    "welcome": {
+      "welcomeChannelId": "1557080388185231501",
+      "goodbyeChannelId": null,
+      "welcomeTitle": "Selamat Datang!",
+      "welcomeBody": "Halo {user}, selamat datang di **{server}**!\nKamu member ke-**{count}**. Baca peraturan dan selesaikan verifikasi ya.",
+      "goodbyeBody": "**{username}** telah meninggalkan **{server}**. Sampai jumpa!"
+    },
+    "logChannels": {}
+  }
+}
