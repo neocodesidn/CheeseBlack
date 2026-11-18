@@ -4,12 +4,13 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const {
   ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, ContainerBuilder,
-  MessageFlags, PermissionFlagsBits: P, SectionBuilder, SlashCommandBuilder,
+  MessageFlags, PermissionFlagsBits: P, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize, SlashCommandBuilder,
   TextDisplayBuilder, ThumbnailBuilder,
 } = require('discord.js');
 const { atomicWriteJson, readJson } = require('../lib/json-storage');
 const { sendLog } = require('../lib/logger');
 const { parseRobloxPlaceId, fetchGameIcon } = require('../lib/roblox-game-api');
+const { buildChangelogHeader, buildChangelogChanges, CHANGELOG_DEFAULTS } = require('../lib/script-changelog-template');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const CATEGORY_FILE = path.join(DATA_DIR, 'script-categories.json');
@@ -62,18 +63,27 @@ function buildCategoryPanel(category, iconUrl) {
 }
 
 function changelogContainer(record, { preview = false } = {}) {
-  const ts = Math.floor((record.publishedAt || record.createdAt || Date.now()) / 1000);
+  const timestamp = record.publishedAt || record.createdAt || Date.now();
   const section = new SectionBuilder().addTextDisplayComponents(text(
-    `# ⬆️ New Script Update!\n**🎮 Game:** ${record.gameName}\n**📜 Script:** ${record.title}\n**🕒 Date:** <t:${ts}:F>\n\n## ⚙️ Changes\n${record.description}`
+    buildChangelogHeader(record, timestamp)
   ));
   if (record.iconUrl) section.setThumbnailAccessory(new ThumbnailBuilder().setURL(record.iconUrl).setDescription(`${record.gameName} game icon`));
-  const container = new ContainerBuilder().addSectionComponents(section);
+
+  // Match the reference changelog layout: title + metadata, one separator,
+  // Changes description, then the colored action buttons immediately below.
+  const separator = new SeparatorBuilder()
+    .setDivider(true)
+    .setSpacing(SeparatorSpacingSize.Large);
+  const container = new ContainerBuilder()
+    .addSectionComponents(section)
+    .addSeparatorComponents(separator)
+    .addTextDisplayComponents(text(buildChangelogChanges(record.description)));
+
   const buttonStyles = [ButtonStyle.Success, ButtonStyle.Danger, ButtonStyle.Primary];
   const actionButtons = record.buttons.map((item, index) => new ButtonBuilder()
     .setCustomId(preview ? `script:preview:${record.id}:${index + 1}` : `script:target:${record.id}:${index + 1}`)
     .setLabel(item.label)
-    .setStyle(buttonStyles[index])
-    .setDisabled(preview));
+    .setStyle(buttonStyles[index]));
   if (actionButtons.length) container.addActionRowComponents(new ActionRowBuilder().addComponents(...actionButtons));
   if (preview) {
     container.addActionRowComponents(new ActionRowBuilder().addComponents(
@@ -81,7 +91,10 @@ function changelogContainer(record, { preview = false } = {}) {
       new ButtonBuilder().setCustomId(`script:cancel:${record.id}`).setLabel('Cancel').setStyle(ButtonStyle.Secondary),
     ));
   }
-  return { components: [container], flags: preview ? EPHEMERAL_V2 : V2, allowedMentions: noMentions };
+  const allowedMentions = preview || !record.recipientRoleId
+    ? noMentions
+    : { parse: [], roles: [record.recipientRoleId] };
+  return { components: [container], flags: preview ? EPHEMERAL_V2 : V2, allowedMentions };
 }
 
 function addCategoryCommand() {
@@ -104,14 +117,20 @@ function addCategoryCommand() {
         .addStringOption((o) => o.setName('category').setDescription('Kategori game').setRequired(true).setAutocomplete(true))
         .addChannelOption((o) => o.setName('channel').setDescription('Channel changelog').setRequired(true).addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))))
     .addSubcommand((s) => s.setName('update').setDescription('Buat changelog script dan tampilkan preview')
+      // Required options must be declared before optional options for Discord API.
       .addStringOption((o) => o.setName('category').setDescription('Kategori game').setRequired(true).setAutocomplete(true))
-      .addStringOption((o) => o.setName('title').setDescription('Judul/nama script update').setRequired(true).setMaxLength(100))
+      .addRoleOption((o) => o.setName('recipient').setDescription('Role penerima/tag update').setRequired(true))
       .addStringOption((o) => o.setName('description').setDescription('Daftar perubahan script').setRequired(true).setMaxLength(3000))
-      .addStringOption((o) => o.setName('button1').setDescription('Label tombol utama (wajib)').setRequired(true).setMaxLength(80))
+      .addStringOption((o) => o.setName('button1').setDescription('Label tombol utama (hijau, wajib)').setRequired(true).setMaxLength(80))
       .addChannelOption((o) => o.setName('directchannelbutton1').setDescription('Channel tujuan tombol utama').setRequired(true).addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
-      .addStringOption((o) => o.setName('button2').setDescription('Label tombol kedua (opsional)').setMaxLength(80))
+      // Optional display fields: defaults are applied by the bot when omitted.
+      .addStringOption((o) => o.setName('title').setDescription('Teks judul (default: New Update Released!)').setMaxLength(100))
+      .addStringOption((o) => o.setName('title_emoji').setDescription('Emoji judul (default: ⬆️)').setMaxLength(100))
+      .addStringOption((o) => o.setName('category_emoji').setDescription('Emoji Category (default: 📋)').setMaxLength(100))
+      .addStringOption((o) => o.setName('recipient_emoji').setDescription('Emoji Recipient (default: 👤)').setMaxLength(100))
+      .addStringOption((o) => o.setName('button2').setDescription('Label tombol kedua (merah, opsional)').setMaxLength(80))
       .addChannelOption((o) => o.setName('directchannelbutton2').setDescription('Channel tujuan tombol kedua').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
-      .addStringOption((o) => o.setName('button3').setDescription('Label tombol ketiga (opsional)').setMaxLength(80))
+      .addStringOption((o) => o.setName('button3').setDescription('Label tombol ketiga (biru, opsional)').setMaxLength(80))
       .addChannelOption((o) => o.setName('directchannelbutton3').setDescription('Channel tujuan tombol ketiga').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)))
     .addSubcommand((s) => s.setName('history').setDescription('Lihat riwayat changelog yang pernah diterbitkan')
       .addStringOption((o) => o.setName('category').setDescription('Filter kategori game (opsional)').setAutocomplete(true))
@@ -247,13 +266,21 @@ async function createUpdatePreview(i) {
   let buttons;
   try { buttons = makeButtons(i); } catch (error) { return reply(i, error.message); }
   if (i.options.getString('button3') && !i.options.getString('button2')) return reply(i, 'Button 3 hanya dapat digunakan jika Button 2 juga diisi.');
-  const title = safeText(i.options.getString('title', true), 100);
+  const recipientRole = i.options.getRole('recipient', true);
+  if (recipientRole.id === i.guildId) return reply(i, 'Role @everyone tidak dapat dipilih sebagai Recipient. Pilih role khusus.');
   const description = safeText(i.options.getString('description', true), 3000);
-  if (!title || !description) return reply(i, 'Title dan description tidak boleh kosong.');
+  const title = safeText(i.options.getString('title') || CHANGELOG_DEFAULTS.title, 100);
+  const titleEmoji = safeText(i.options.getString('title_emoji') || CHANGELOG_DEFAULTS.titleEmoji, 100);
+  const categoryEmoji = safeText(i.options.getString('category_emoji') || CHANGELOG_DEFAULTS.categoryEmoji, 100);
+  const recipientEmoji = safeText(i.options.getString('recipient_emoji') || CHANGELOG_DEFAULTS.recipientEmoji, 100);
+  if (!title || !description || !titleEmoji || !categoryEmoji || !recipientEmoji) return reply(i, 'Title, description, dan emoji metadata tidak boleh kosong.');
+  const me = i.guild.members.me || await i.guild.members.fetchMe();
+  if (!recipientRole.mentionable && !me.permissions.has(P.MentionEveryone)) {
+    return reply(i, `Role ${recipientRole.name} belum dapat di-mention. Aktifkan Mentionable pada role atau berikan izin Mention Everyone kepada bot.`);
+  }
   const draftId = crypto.randomBytes(5).toString('hex');
   await i.deferReply({ flags: EPHEMERAL_V2 });
   const channel = i.guild.channels.cache.get(category.changelogChannelId) || await i.guild.channels.fetch(category.changelogChannelId).catch(() => null);
-  const me = i.guild.members.me || await i.guild.members.fetchMe();
   if (!channel?.isTextBased?.() || !channel.permissionsFor(me)?.has([P.ViewChannel, P.SendMessages])) {
     return i.editReply({ components: [new ContainerBuilder().addTextDisplayComponents(text('## Channel Unavailable\nChannel changelog tidak tersedia atau bot tidak memiliki izin mengirim pesan.'))], flags: V2, allowedMentions: noMentions });
   }
@@ -261,7 +288,8 @@ async function createUpdatePreview(i) {
   if (icon.refreshed) { category.iconUrl = icon.url; category.iconUpdatedAt = Date.now(); setCategories(i.guildId, categoriesFor(i.guildId)); }
   const draft = {
     id: draftId, guildId: i.guildId, ownerId: i.user.id, categoryId: category.id,
-    gameName: category.name, title,
+    gameName: category.name, title, titleEmoji, categoryEmoji, recipientEmoji,
+    recipientRoleId: recipientRole.id, recipientRoleName: recipientRole.name,
     description,
     buttons, iconUrl: icon.url, createdAt: Date.now(), expiresAt: Date.now() + DRAFT_TTL_MS,
     publishing: false,
@@ -289,8 +317,10 @@ async function publishDraft(i, draftId) {
     draft.iconUrl = latestIcon.url;
     const record = {
       id: draft.id, guildId: draft.guildId, categoryId: draft.categoryId,
-      gameName: draft.gameName, title: draft.title, description: draft.description,
-      buttons: draft.buttons, iconUrl: draft.iconUrl, channelId: channel.id,
+      gameName: draft.gameName, title: draft.title, titleEmoji: draft.titleEmoji,
+      categoryEmoji: draft.categoryEmoji, recipientEmoji: draft.recipientEmoji,
+      recipientRoleId: draft.recipientRoleId, recipientRoleName: draft.recipientRoleName,
+      description: draft.description, buttons: draft.buttons, iconUrl: draft.iconUrl, channelId: channel.id,
       messageId: null, createdAt: draft.createdAt, publishedAt: Date.now(),
       publishedBy: i.user.id, status: 'publishing',
     };
@@ -311,7 +341,7 @@ async function publishDraft(i, draftId) {
     record.publishedAt = Date.now();
     let historySaved = true;
     try { saveUpdates(); } catch (saveError) { historySaved = false; console.error('[script] Changelog published but final history update failed:', saveError); }
-    await sendLog(i.guild, { category: 'script', title: 'Script changelog published', body: `Game: **${record.gameName}**\nScript: **${record.title}**\nChannel: <#${channel.id}>\nPublished by: <@${i.user.id}>` });
+    await sendLog(i.guild, { category: 'script', title: 'Script changelog published', body: `Game: **${record.gameName}**\nTitle: **${record.title}**\nRecipient: **@${record.recipientRoleName}**\nChannel: <#${channel.id}>\nPublished by: <@${i.user.id}>` });
     await i.editReply({ components: [new ContainerBuilder().addTextDisplayComponents(text(`## Changelog Published\n**${record.title}** untuk **${record.gameName}** berhasil diterbitkan di <#${channel.id}>.\n[Open changelog](https://discord.com/channels/${i.guildId}/${channel.id}/${message.id})${historySaved ? '' : '\n\n-# Peringatan: pesan sudah terbit, tetapi riwayat akhir gagal diperbarui. Periksa file script-updates.json.'}`))], flags: V2, allowedMentions: noMentions });
   } catch (error) {
     draft.publishing = false;
@@ -373,7 +403,7 @@ async function handle(i) {
     if (match) { await cancelDraft(i, match[1]); return true; }
     match = /^script:target:([a-f0-9]{10}):(\d)$/.exec(i.customId);
     if (match) { await openButtonTarget(i, match[1], Number(match[2])); return true; }
-    if (i.customId.startsWith('script:preview:')) { await reply(i, 'Preview Mode', 'Tombol tujuan hanya aktif setelah changelog diterbitkan.'); return true; }
+    if (/^script:preview:[a-f0-9]{10}:\d$/.test(i.customId)) { await reply(i, 'Tombol tujuan akan aktif setelah changelog diterbitkan.'); return true; }
   }
   return false;
 }
