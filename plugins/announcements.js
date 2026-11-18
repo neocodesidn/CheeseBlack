@@ -51,9 +51,10 @@ const commands = [
     .setDefaultMemberPermissions(P.Administrator).setContexts(0).toJSON(),
   new SlashCommandBuilder().setName('rules').setDescription('Pengelolaan peraturan server')
     .addSubcommand((s) => s.setName('publish').setDescription('Terbitkan atau perbarui panel rules tanpa form/translate')
-      .addChannelOption((o) => o.setName('channel').setDescription('Channel tujuan (default: channel ini)').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
+      // Discord requires every required option to precede all optional options.
       .addStringOption((o) => o.setName('title').setDescription('Judul panel rules').setMaxLength(100).setRequired(true))
       .addStringOption((o) => o.setName('body').setDescription('Isi peraturan server').setMaxLength(3500).setRequired(true))
+      .addChannelOption((o) => o.setName('channel').setDescription('Channel tujuan (default: channel ini)').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
       .addStringOption((o) => o.setName('footer').setDescription('Catatan penutup opsional').setMaxLength(500)))
     .setDefaultMemberPermissions(P.Administrator).setContexts(0).toJSON(),
 ];

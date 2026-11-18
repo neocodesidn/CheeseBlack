@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.1 — 2026-11-18 (Registration hotfix)
+- Fixed `/rules publish` option ordering so required `title` and `body` precede optional `channel` and `footer`.
+- Added local slash-command option-order validation before Discord registration, with a clear command path in the error.
+- Added regression tests for valid and invalid required/optional option ordering.
+
 ## 2.0.0 — Community Exploit Bot V1
 
 ### Product rebrand
