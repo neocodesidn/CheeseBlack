@@ -1,22 +1,18 @@
 {
-  "name": "community-exploit-bot",
-  "version": "2.0.0",
+  "name": "cheeseblack-game-changelog",
+  "version": "1.0.0",
   "private": true,
-  "main": "index.js",
+  "engines": {
+    "node": ">=22.16.0"
+  },
   "scripts": {
-    "start": "node index.js",
-    "register": "node register.js",
+    "register": "node --env-file-if-exists=.env src/register.js",
+    "start": "node --env-file-if-exists=.env src/bot.js",
     "test": "node --test"
   },
   "dependencies": {
-    "@napi-rs/canvas": "^0.1.65",
-    "discord.js": "^14.26.5",
-    "dotenv": "^16.4.5",
-    "pino": "^9.6.0",
-    "pino-pretty": "^13.0.0",
-    "qrcode": "^1.5.4"
-  },
-  "engines": {
-    "node": ">=18.17.0"
+    "discord.js": "14.26.5",
+    "htmlparser2": "10.0.0",
+    "ipaddr.js": "2.2.0"
   }
 }

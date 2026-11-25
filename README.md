@@ -1,136 +1,66 @@
-# Community Exploit Bot
+# CheeseBlack · Game Changelog
 
-Discord bot modular untuk komunitas Roblox exploit/script, game developer, coding, dan technical support. Proyek ini menggunakan fondasi teknis dari source sebelumnya, tetapi fitur, command, konfigurasi, dan identitas produk sudah diarahkan ulang untuk kebutuhan komunitas baru.
-
-## Fokus produk
-
-### Community management
-- Verification: CAPTCHA dan pemberian role setelah lolos.
-- Roles: self-role panel dengan tombol toggle.
-- Boost: pesan otomatis saat anggota melakukan server boost.
-- Announcement: publikasi langsung melalui slash command, tanpa modal/form.
-- Server Rules: panel rules statis, tanpa translate, tanpa tombol, dan tanpa modal/form.
-- Welcome: pesan welcome dan goodbye yang dapat dikustomisasi.
-- Donation: panel QRIS, role donatur, notifikasi, dan riwayat.
-- Ticket: kanal bantuan privat, penutupan, dan transcript.
-- Invites: tracking undangan dan invite logs.
-- Trap: honeypot channel dengan whitelist dan security log.
-- Logs: pemetaan channel log per jenis aktivitas.
-
-### Script Management V1
-- Registrasi kategori game Roblox berdasarkan nama dan link game.
-- Satu kategori mewakili satu game dan satu script utama.
-- Place ID diekstrak dari URL Roblox.
-- Game Icon diambil dari Roblox Thumbnail API ketika kategori dibuat, dipreview, dan ketika changelog diterbitkan.
-- Channel changelog disimpan per kategori.
-- Changelog wajib melalui preview dan konfirmasi Publish.
-- Maksimal tiga tombol per changelog: Button 1 hijau (wajib), Button 2 merah (opsional), Button 3 biru (opsional).
-- Label dan channel tujuan tombol diatur untuk setiap changelog, bukan konfigurasi permanen.
-- Tombol berwarna menggunakan interaksi bot dan membalas dengan tautan channel secara ephemeral. Tombol Discord berwarna tidak dapat sekaligus menjadi tombol Link langsung.
-- Riwayat changelog disimpan dan dapat dilihat melalui command.
-
-Executor Manager belum termasuk dalam V1.
-
-## Command utama
-
-| Command | Fungsi |
-|---|---|
-| `/verification setup` | Pasang CAPTCHA verification panel |
-| `/roles panel` | Buat self-role panel |
-| `/boost setup` | Atur channel boost |
-| `/announcement send` | Kirim pengumuman tanpa modal |
-| `/rules publish` | Terbitkan/perbarui rules statis |
-| `/welcome setup` | Atur welcome/goodbye |
-| `/welcome test` | Preview welcome/goodbye |
-| `/donation panel` | Pasang panel donasi |
-| `/donation setup role` | Atur role donatur otomatis |
-| `/donation notify` | Atur channel notifikasi donasi |
-| `/donation logs` | Lihat riwayat transaksi |
-| `/ticket setup` | Pasang panel ticket |
-| `/invites setup` | Aktifkan invite tracking dan atur log |
-| `/invites stats` | Lihat statistik invite |
-| `/logs set` | Atur channel log per fitur |
-| `/logs status` | Lihat channel log yang sudah diatur |
-| `/trap setup` | Aktifkan honeypot |
-| `/trap status` | Lihat status honeypot |
-| `/script category add` | Daftarkan game Roblox |
-| `/script category list` | Lihat kategori game |
-| `/script category edit` | Ubah nama/link game |
-| `/script category archive` | Arsipkan kategori |
-| `/script category preview` | Preview kategori dan Game Icon |
-| `/script channel set` | Tetapkan channel changelog per kategori |
-| `/script update` | Buat preview changelog script |
-| `/script history` | Lihat riwayat changelog |
-| `/panels refresh` | Refresh panel permanen yang terdaftar |
-| `/help commands` | Panduan command |
-| `/admin overview` | Ringkasan bot untuk Bot Owner |
-
-## Persyaratan
-
-- Node.js 18.17 atau lebih baru.
-- Discord Application dan Bot Token.
-- Bot memiliki permission sesuai fitur: View Channels, Send Messages, Embed Links, Attach Files, Manage Roles, Manage Channels, Read Message History, dan Manage Server.
-- Server Members Intent untuk Welcome, Boost, Verification/role workflows tertentu, Invites, dan Trap.
-- Guild Invites Intent untuk Invite Tracking.
-- Guild Messages Intent untuk Trap honeypot.
-
-Aktifkan privileged intents yang diperlukan di Discord Developer Portal dan pastikan intent yang sama diminta oleh bot.
+Bot Discord khusus kategori game dan changelog. Jalankan satu proses bot dengan Node.js 22.16+ (diuji dengan Node 24). Direktori data harus berada di disk persisten yang dapat ditulis.
 
 ## Instalasi
 
-1. Ekstrak source.
-2. Jalankan `npm install`.
-3. Salin `.env.example` menjadi `.env`.
-4. Isi `DISCORD_TOKEN`, `CLIENT_ID`, `BOT_OWNER_IDS`, dan identitas bot.
-5. Jika memakai registrasi command cepat, isi `GUILD_ID` dengan satu atau beberapa server ID dipisahkan koma.
-6. Jalankan `npm run register`.
-7. Jalankan `npm start`.
+1. Buka aplikasi **CheeseBlack** di Discord Developer Portal. Salin Application ID dan token bot dari aplikasi tersebut. Aktifkan **Message Content Intent** di halaman Bot. Intents yang dipakai kode adalah Guilds, GuildMessages, dan MessageContent.
+2. Pasang aplikasi ke server dengan scope `bot` dan `applications.commands`. Beri CheeseBlack izin **View Channel**, **Read Message History**, **Send Messages**, **Create Private Threads**, **Send Messages in Threads**, dan **Manage Threads** pada channel teks tujuan. Agar role menerima notifikasi, gunakan role yang dapat disebut atau berikan izin **Mention Everyone** kepada bot di channel tujuan. Kode hanya mengizinkan ping ke ID role pilihan. Untuk emoji dari server lain, izin Use External Emojis dapat diperlukan.
+3. Ekstrak ZIP, lalu jalankan dari folder yang berisi package.json.
 
-Untuk pengembangan lokal, `npm test` menjalankan test suite yang tersedia.
-
-## Environment
-
-| Variabel | Keterangan |
-|---|---|
-| `BOT_NAME` | Nama produk yang digunakan di pesan/panel yang mendukung branding dinamis |
-| `BOT_DESCRIPTION` | Deskripsi identitas bot untuk log startup/dokumentasi |
-| `DISCORD_TOKEN` | Token bot Discord |
-| `CLIENT_ID` | Application ID |
-| `BOT_OWNER_IDS` | Discord user ID Bot Owner, dipisahkan koma |
-| `GUILD_ID` | Opsional, server untuk registrasi command cepat |
-| `DISABLED_PLUGINS` | Opsional, daftar plugin inti yang dinonaktifkan |
-| `LOG_LEVEL` | Level log |
-| `GOPAY_STATIC_QR` | QRIS statis untuk modul donation |
-| `GOPAY_HISTORY_TOKEN` | Token history transaksi dari merchant yang sama |
-
-## Struktur proyek
-
-```text
-Community-Exploit-Bot/
-├── data/                 # Konfigurasi dan riwayat runtime
-├── lib/                  # Shared engines, storage, helpers
-├── plugins/              # Modul fitur yang aktif
-├── tests/                # Unit dan regression tests
-├── .env.example
-├── index.js
-├── register.js
-└── package.json
+```sh
+npm ci
+cp .env.example .env
 ```
 
-## Prinsip arsitektur
+Isi CHEESEBLACK_APPLICATION_ID dan CHEESEBLACK_TOKEN di .env. Jika deployment lama menggunakan GUILD_ID, salin daftar ID tersebut ke LEGACY_GUILD_IDS. Di panel hosting kamu juga bisa mengisi variabel langsung. Hentikan proses **CheeseBlack versi lama** sebelum menyalakan versi baru.
 
-- Plugin inti dimuat melalui allowlist di `lib/loader.js`; plugin yang tidak masuk allowlist tidak akan aktif.
-- Setiap fitur memiliki command root yang jelas dan tidak lagi menggunakan command category lama.
-- Components V2 digunakan untuk panel publik dan preview.
-- Tidak ada custom icon pack bawaan pada rilis ini. Aset visual panel menggunakan input/attachment dari admin bila fitur memerlukannya. Game Icon pada Script Management merupakan data dinamis dari Roblox, bukan aset icon pack bot.
-- Channel log disimpan per kategori agar aktivitas tidak tercampur.
-- Panel permanen disimpan dengan channel ID dan message ID untuk mencegah duplikasi.
-- File JSON ditulis secara atomic untuk mengurangi risiko file terpotong saat proses berhenti.
+```sh
+npm run register
+npm start
+```
 
-## Catatan operasional
+Registrasi memeriksa identitas token, mengganti daftar command global aplikasi itu dengan /game, lalu menghapus command guild lama pada semua server yang dapat didaftar bot serta ID tambahan dari konfigurasi. Ulangi register jika proses terputus. Untuk guild lama yang sudah ditinggalkan, akses guild mungkin harus dipulihkan dulu. Perubahan menu global dapat memerlukan waktu untuk terlihat di klien.
 
-- Jalankan satu instance bot untuk satu folder `data/` yang sama. JSON storage bukan database multi-process.
-- Simpan `.env` dan folder `data/` secara aman; keduanya dapat berisi token atau ID konfigurasi server.
-- Lakukan backup `data/` sebelum upgrade.
-- Saat command berubah, jalankan ulang `npm run register` agar command lama di Discord diganti dengan struktur baru.
-- Ikon Game Roblox bergantung pada ketersediaan Roblox Thumbnail API. Jika API gagal, bot menggunakan ikon terakhir yang tersimpan jika tersedia.
+## Pemakaian
+
+| Command | Hasil |
+|---|---|
+| /game add categoryname:FISH IT linkgame:… | Menyimpan nama tampilan serta URL opsional di server ini. |
+| /game list | Daftar kategori server. |
+| /game delete categoryname:FISH IT | Menghapus kategori untuk draft baru. |
+| /game changelog categoryname:FISH IT recipient:@Update | Membuka thread privat di channel teks biasa. |
+
+Semua command memerlukan Administrator. Hanya pembuat draft yang masih memiliki akses Administrator yang dapat menggunakan tombol. Anggota dengan izin Manage Threads dapat melihat thread privat sesuai aturan Discord.
+
+Buka thread, salin contoh dan kirim **satu pesan**. Pilih emoji, role, atau channel melalui composer. Label diawali pada kolom pertama. Satu baris untuk judul, lalu isi bebas untuk description dan footer.
+
+```text
+title: New Update Released!
+
+description:
+**Changes**
+• Menambahkan area memancing baru.
+
+footer:
+**Diskusi:**
+```
+
+Tekan **Preview**. Tujuan ada tepat di atas tombol **Publish**. **Edit Draft** membuka kembali penyuntingan. Edit pesan asli atau kirim pengganti, lalu tekan **Preview** lagi. Publish memakai isi preview terakhir dengan tanggal WIB pada saat terbit. Bagian footer beserta garisnya hilang jika kosong. Cancel dan publikasi sukses menutup thread. Draft tersimpan di SQLite dan dapat dilanjutkan setelah restart dengan membuka kembali thread.
+
+Link Roblox diproses dari place ID ke universe ID, lalu ikon game. Untuk URL publik lain, bot mencoba gambar langsung atau metadata og:image/twitter:image dari halaman. Ikon server menjadi cadangan. Server tanpa ikon tetap mendapat panel teks. Empat PNG dalam assets didaftarkan saat preview pertama dan ditemukan kembali menurut nama emoji aplikasi. Biarkan nama emoji tersebut tetap sama.
+
+## Data dan pemulihan
+
+DATA_FILE menunjuk ke database SQLite kategori dan draft. Cadangkan direktori data saat proses berhenti. Jalankan satu instance untuk setiap aplikasi. Preview selalu bebas ping. Bot mengunci publikasi per thread, menyimpan status sebelum mengirim, dan memakai nonce Discord yang sama untuk percobaan ulang. Jika Discord menolak permintaan, perbaiki penyebabnya dan klik Publish kembali. Jika koneksi putus saat respons sedang dikirim, segera klik Publish lagi. Setelah jendela percobaan singkat, bot memeriksa penanda panel di riwayat channel. Jika hasilnya tetap ambigu, draft dipertahankan dan pengiriman otomatis dihentikan. Periksa channel secara manual sebelum membuat draft pengganti.
+
+## Pengujian
+
+Jalankan `npm test`. Dua belas pengujian lokal lulus, termasuk SQLite setelah dibuka ulang, isolasi server, registrasi scope, komponen dan ping, alur edit/cancel, unggahan emoji bersamaan, thumbnail, kegagalan kirim, dan pencegahan publikasi ganda. Tes API menggunakan respons simulasi. Percobaan jaringan Roblox dari lingkungan build menghasilkan fallback.
+
+Verifikasi langsung dengan aplikasi CheeseBlack di server uji:
+
+1. Jalankan register dan start. Periksa menu global dan guild pengujian lama, lalu cek penolakan untuk akun non-admin.
+2. Tambah FISH IT, restart bot dan periksa autocomplete pada dua server.
+3. Di HP, tulis draft dengan emoji server serta mention channel. Lihat preview dan tujuan, edit, preview lagi, lalu klik Publish dua kali. Cocokkan satu panel publik, ikon lokal, penerima, waktu WIB dan notifikasi. Coba Cancel pada draft terpisah.
+4. Periksa thumbnail untuk game Roblox aktif, link kosong dan server tanpa ikon. Uji footer kosong, role dengan izin berbeda, dan tombol draft dari administrator kedua.
