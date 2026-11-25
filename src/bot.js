@@ -17,6 +17,7 @@ const { parse, panel } = require('./content');
 const { iconsFor, thumbnail } = require('./media');
 const { publish } = require('./publish');
 
+const gamePanel = require('./game-panel');
 const silent = { parse: [] };
 const labels = { preview: 'Preview', edit: 'Edit Draft', publish: 'Publish', cancel: 'Cancel' };
 function controls(actions, rev = '') {
@@ -118,6 +119,7 @@ async function slash(i, db) {
     db.remove(i.guildId, category.key);
     return i.editReply('Kategori dihapus.');
   }
+  if (sub === 'panel') return gamePanel.publish(i, db.db, category);
   return openDraft(i, db, category);
 }
 async function latest(thread, owner) {
@@ -199,6 +201,7 @@ async function main() {
     allowedMentions: silent,
     rest: { retries: 0 },
   });
+  gamePanel.initialize(db.db);
   require('./music').install(client, db.db);
   require('./icons').install(client, token);
   const busy = new Set();
@@ -221,6 +224,7 @@ async function main() {
       const isButton = i.isButton() && i.customId.startsWith('game:');
       if (!isButton && !(i.isChatInputCommand() && i.commandName === 'game')) return;
       await i.deferReply({ flags: MessageFlags.Ephemeral });
+      if (isButton && i.customId.startsWith('game:copy:')) return await gamePanel.copy(i, db.db);
       if (!admin) throw Error('Khusus administrator server.');
       if (!isButton) return await slash(i, db);
       const d = db.draft(i.channelId);

@@ -27,15 +27,15 @@ function draft() {
   db.preview(thread, { ...parse(raw), revision: 'first' });
   return db;
 }
-test('empat subcommand admin, role picker dan autocomplete', () => {
+test('lima subcommand admin, role picker dan autocomplete', () => {
   assert.deepEqual(
     cmd.options.map((o) => o.name),
-    ['add', 'list', 'delete', 'changelog'],
+    ['add', 'list', 'delete', 'changelog', 'panel'],
   );
   assert.equal(cmd.default_member_permissions, '8');
   assert.deepEqual(cmd.contexts, [0]);
   assert.equal(cmd.options[3].options[1].type, 8);
-  for (const n of [2, 3]) assert.equal(cmd.options[n].options[0].autocomplete, true);
+  for (const n of [2, 3, 4]) assert.equal(cmd.options[n].options[0].autocomplete, true);
 });
 test('registrasi membersihkan global dan guild lama pada satu aplikasi', async () => {
   const writes = [];

@@ -37,5 +37,13 @@ const command = new SlashCommandBuilder()
       .addRoleOption((o) => o.setName('recipient').setDescription('Role penerima').setRequired(true))
       .addChannelOption((o) => o.setName('channel').setDescription('Tujuan publikasi (default: channel saat ini)')
         .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)),
+  )
+  .addSubcommand(s => s.setName('panel').setDescription('Terbitkan panel loadstring untuk kategori game')
+    .addStringOption(o => category(o, true))
+    .addStringOption(o => o.setName('loadstring').setDescription('Teks yang dapat disalin member')
+      .setRequired(true).setMaxLength(2000))
+    .addAttachmentOption(o => o.setName('image').setDescription('Gambar panel (opsional)'))
+    .addStringOption(o => o.setName('namebutton').setDescription('Label tombol tujuan').setMaxLength(80))
+    .addStringOption(o => o.setName('redirectbutton').setDescription('URL http(s) atau #channel server ini').setMaxLength(512))
   );
 module.exports = command;
