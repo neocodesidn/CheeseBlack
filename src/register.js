@@ -1,6 +1,6 @@
 const { Routes } = require('discord.js');
 const { authenticate } = require('./config');
-const command = require('./command');
+const commands = [require('./command'), require('./music').command, require('./icons').command];
 
 async function register(rest, id, legacy = '') {
   const guilds = new Set(
@@ -19,7 +19,7 @@ async function register(rest, id, legacy = '') {
     if (page.length < 200) break;
     after = page.reduce((max, g) => (BigInt(g.id) > BigInt(max) ? g.id : max), after);
   }
-  await rest.put(Routes.applicationCommands(id), { body: [command.toJSON()] });
+  await rest.put(Routes.applicationCommands(id), { body: commands.map((command) => command.toJSON()) });
   for (const guild of guilds) {
     const route = Routes.applicationGuildCommands(id, guild);
     if ((await rest.get(route)).length) await rest.put(route, { body: [] });
@@ -30,7 +30,7 @@ if (require.main === module)
     .then(({ rest, id }) =>
       register(rest, id, [process.env.LEGACY_GUILD_IDS, process.env.GUILD_ID].filter(Boolean).join(',')),
     )
-    .then(() => console.log('/game terdaftar, scope guild lama sudah diperiksa.'))
+    .then(() => console.log('/game, /music dan /icons terdaftar, scope guild lama sudah diperiksa.'))
     .catch((e) => {
       console.error('Registrasi gagal:', e.message);
       process.exitCode = 1;

@@ -1,0 +1,112 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { DatabaseSync } = require('node:sqlite');
+const { ChannelType, MessageFlags } = require('discord.js');
+const music = require('../src/music');
+const icons = require('../src/icons');
+
+test('36 PNG server dapat dipasang, instalasi ulang melewati nama yang sama', async () => {
+  const rows = await icons.catalog();
+  assert.equal(rows.length, 36);
+  const known = [];
+  const rest = {
+    get: async () => known,
+    post: async (route, { body }) => {
+      assert.equal(route, '/guilds/123/emojis');
+      assert.ok(body.image.startsWith('data:image/png;base64,iVBOR'));
+      known.push({ name: body.name });
+    },
+  };
+  const run = (rows) => icons.upload(rest, '123', rows, async () => {}, Date.now() + 60000);
+  assert.deepEqual(await run(rows.slice(0, 1)), { added: 1, skipped: 0 });
+  assert.deepEqual(await run(rows), { added: 35, skipped: 1 });
+  assert.deepEqual(await run(rows), { added: 0, skipped: 36 });
+});
+test('modal bulk, panel publik, rollback duplikat, pilihan privat, salin dan hapus', async () => {
+  let listener, reply, modal, sent;
+  const db = new DatabaseSync(':memory:');
+  const channel = {
+    type: ChannelType.GuildText,
+    send: async (data) => {
+      sent = data;
+      return { id: 'panel' };
+    },
+    messages: {
+      edit: async (_id, data) => {
+        sent = data;
+      },
+    },
+  };
+  const client = {
+    once() {},
+    on(_e, cb) {
+      listener = cb;
+    },
+    channels: { fetch: async () => channel },
+  };
+  music.install(client, db);
+  const interact = async (sub, opts = {}) => {
+    reply = undefined;
+    const i = {
+      guildId: 'guild',
+      channelId: 'channel',
+      channel,
+      commandName: 'music',
+      memberPermissions: { has: () => true },
+      isChatInputCommand: () => Boolean(sub),
+      isAutocomplete: () => false,
+      isButton: () => false,
+      isStringSelectMenu: () => false,
+      options: { getSubcommand: () => sub, getString: () => 'test' },
+      reply: async (data) => {
+        reply = data;
+      },
+      editReply: async (data) => {
+        reply = data;
+      },
+      deferReply: async () => {
+        i.deferred = true;
+      },
+      showModal: async (data) => {
+        modal = data.toJSON();
+      },
+      update: async (data) => {
+        reply = data;
+      },
+      ...opts,
+    };
+    await listener(i);
+  };
+  const bulk = (text) =>
+    interact('', { customId: 'music:bulk', fields: { getTextInputValue: () => text } });
+  const count = () => db.prepare('SELECT count(*) AS n FROM music_tracks').get().n;
+  await interact('panel');
+  await interact('bulk');
+  assert.equal(modal.custom_id, 'music:bulk');
+  await bulk('123 | Test\n456 | Lagu B');
+  assert.equal(count(), 2);
+  assert.match(JSON.stringify(sent.components[0].toJSON()), /Lagu B/);
+  await bulk('789 | Lagu C\n123 | Nama lain');
+  assert.equal(count(), 2);
+  await interact('', {
+    customId: 'music:pick',
+    isStringSelectMenu: () => true,
+    values: ['123', '456'],
+    memberPermissions: { has: () => false },
+  });
+  assert.equal(reply.flags, MessageFlags.Ephemeral);
+  await interact('', { customId: 'music:copy', isButton: () => true, message: { content: reply.content } });
+  assert.deepEqual(reply.content.split('\n').sort(), ['123', '456']);
+  await interact('delete');
+  assert.equal(count(), 1);
+  assert.ok(!JSON.stringify(sent.components[0].toJSON()).includes('Test'));
+  await interact('add', { memberPermissions: { has: () => false } });
+  assert.match(reply.content, /administrator/);
+  db.close();
+});
+test('panel 21 lagu bisa berpindah ke halaman dua', () => {
+  const songs = Array.from({ length: 21 }, (_, i) => ({ id: String(i + 1), name: 'Lagu ' + (i + 1) }));
+  const box = music.render(songs, 1).components[0].toJSON();
+  assert.match(JSON.stringify(box), /Halaman 2 \/ 2/);
+  assert.ok(box.components.some((c) => c.components?.some((x) => x.options?.length === 1)));
+});

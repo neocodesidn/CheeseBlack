@@ -58,7 +58,7 @@ test('registrasi membersihkan global dan guild lama pada satu aplikasi', async (
   );
   assert.deepEqual(
     writes.map((w) => w[1].length),
-    [1, 0, 0],
+    [3, 0, 0],
   );
 });
 test('isolasi kategori, duplikat, restart, delete', () => {
@@ -241,4 +241,29 @@ test('halaman game publik memakai og:image setelah jenis gambar dikonfirmasi', a
     'https://game.test/icon.png',
   );
   assert.equal(await thumbnail('http://127.0.0.1/game', 'guild'), 'guild');
+});
+
+test('draft privat memakai tujuan pilihan atau channel asal bila opsi kosong', async () => {
+  const {openDraft} = require('../src/bot');
+  const {ChannelType} = require('discord.js');
+  const option = cmd.options[3].options.find(o => o.name === 'channel');
+  assert.equal(option.type, 7);
+  assert.deepEqual(option.channel_types, [ChannelType.GuildText, ChannelType.GuildAnnouncement]);
+  for (const picked of ['updates', null]) {
+    const db = new Store(':memory:');
+    const expected = picked ?? 'admin';
+    const target = {id:expected, type:ChannelType.GuildAnnouncement, permissionsFor:()=>({has:()=>true})};
+    const privateThread = {id:thread, members:{add:async()=>{}}, send:async message=>{
+      assert.ok(message.content.includes('Tujuan <#'+expected+'>'));
+    }};
+    const source = {id:'admin', type:ChannelType.GuildText, permissionsFor:target.permissionsFor,
+      threads:{create:async options=>{assert.equal(options.type,ChannelType.PrivateThread);return privateThread;}}};
+    const i = {channel:source, guildId:'A', guild:{members:{me:{}},channels:{fetch:async id=>{
+      assert.equal(id,expected); return picked ? target : source;
+    }}},options:{getRole:()=>({id:'role'}),getChannel:()=>picked && target},
+      user:{id:'owner',username:'neo'},editReply:async()=>{}};
+    await openDraft(i,db,{name:'FISH IT',link:''});
+    assert.equal(db.draft(thread).target,expected);
+    db.db.close();
+  }
 });

@@ -199,6 +199,8 @@ async function main() {
     allowedMentions: silent,
     rest: { retries: 0 },
   });
+  require('./music').install(client, db.db);
+  require('./icons').install(client, token);
   const busy = new Set();
   client.on(Events.InteractionCreate, async (i) => {
     let lock;
