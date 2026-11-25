@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, InteractionContextType } = require('discord.js');
+const { ChannelType, SlashCommandBuilder, PermissionFlagsBits, InteractionContextType } = require('discord.js');
 
 function category(option, autocomplete = false) {
   return option
@@ -34,6 +34,8 @@ const command = new SlashCommandBuilder()
       .setName('changelog')
       .setDescription('Tulis changelog dalam thread privat')
       .addStringOption((o) => category(o, true))
-      .addRoleOption((o) => o.setName('recipient').setDescription('Role penerima').setRequired(true)),
+      .addRoleOption((o) => o.setName('recipient').setDescription('Role penerima').setRequired(true))
+      .addChannelOption((o) => o.setName('channel').setDescription('Tujuan publikasi (default: channel saat ini)')
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)),
   );
 module.exports = command;

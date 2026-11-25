@@ -31,6 +31,14 @@ function controls(actions, rev = '') {
 }
 const example =
   'title: New Update Released!\n\ndescription:\n**Changes**\n• Menambahkan area memancing baru.\n\nfooter:\n**Diskusi:** ';
+async function destination(guild, id) {
+  const target = await guild.channels.fetch(id);
+  if (!target || ![ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(target.type))
+    throw Error('Pilih channel teks atau pengumuman di server ini.');
+  if (!target.permissionsFor(guild.members.me)?.has([P.ViewChannel, P.SendMessages, P.ReadMessageHistory]))
+    throw Error('CheeseBlack perlu View Channel, Send Messages dan Read Message History di <#' + id + '>.');
+  return target;
+}
 async function openDraft(i, db, category) {
   const channel = i.channel;
   if (channel.type !== ChannelType.GuildText)
@@ -45,6 +53,7 @@ async function openDraft(i, db, category) {
   ];
   if (!channel.permissionsFor(i.guild.members.me)?.has(required))
     throw Error('Periksa izin channel dan thread CheeseBlack sesuai README.');
+  const target = await destination(i.guild, i.options.getChannel('channel')?.id ?? channel.id);
   const role = i.options.getRole('recipient', true);
   if (role.id === i.guildId) throw Error('Pilih role penerima khusus selain @everyone.');
   const thread = await channel.threads.create({
@@ -55,11 +64,11 @@ async function openDraft(i, db, category) {
   });
   try {
     await thread.members.add(i.user.id);
-    db.create(thread.id, i.guildId, i.user.id, channel.id, category, role.id);
+    db.create(thread.id, i.guildId, i.user.id, target.id, category, role.id);
     await thread.send({
       content:
         '**Draft changelog** · Tujuan <#' +
-        channel.id +
+        target.id +
         '>\nSalin contoh ini ke satu pesan. Pilih emoji, role, dan channel langsung di composer. Isi footer jika perlu.\n\n```\n' +
         example +
         '\n```\nSetelah mengirim pesan, tekan **Preview**.',
@@ -173,8 +182,7 @@ async function button(i, db, d, action, rev) {
     });
   }
   if (action !== 'publish') throw Error('Tombol tidak dikenal.');
-  const channel = await i.guild.channels.fetch(d.target);
-  if (!channel?.isSendable()) throw Error('Channel tujuan tidak tersedia.');
+  const channel = await destination(i.guild, d.target);
   if (!(await i.guild.roles.fetch(d.role, { force: true })))
     throw Error('Role penerima sudah dihapus. Buat draft dengan role yang tersedia.');
   const payload = await render(i, d, body, true);
@@ -237,4 +245,4 @@ if (require.main === module)
     console.error(e.message);
     process.exitCode = 1;
   });
-module.exports = { button, latest, controls };
+module.exports = { button, latest, controls, openDraft };
