@@ -25,7 +25,9 @@ test('36 PNG server dapat dipasang, instalasi ulang melewati nama yang sama', as
 test('modal bulk, panel publik, rollback duplikat, pilihan privat, salin dan hapus', async () => {
   let listener, reply, modal, sent;
   const db = new DatabaseSync(':memory:');
+  const guild = { iconURL: () => 'https://example.org/server.png' };
   const channel = {
+    guild,
     type: ChannelType.GuildText,
     send: async (data) => {
       sent = data;
@@ -48,7 +50,9 @@ test('modal bulk, panel publik, rollback duplikat, pilihan privat, salin dan hap
   const interact = async (sub, opts = {}) => {
     reply = undefined;
     const i = {
+      guild,
       guildId: 'guild',
+      user: { id: '123456789012345678' },
       channelId: 'channel',
       channel,
       commandName: 'music',
@@ -86,8 +90,18 @@ test('modal bulk, panel publik, rollback duplikat, pilihan privat, salin dan hap
   await bulk('123 | Test\n456 | Lagu B');
   assert.equal(count(), 2);
   assert.match(JSON.stringify(sent.components[0].toJSON()), /Lagu B/);
+  const metadata = () => db.prepare('SELECT * FROM music_catalog_info WHERE guild=?').get('guild');
+  const first = metadata();
+  assert.equal(first.uploader, '123456789012345678');
+  assert.ok(first.updated > 0);
+  const box = sent.components[0].toJSON();
+  assert.equal(box.components[0].accessory.media.url, guild.iconURL());
+  assert.equal(box.components.filter(c=>c.type === 14 && c.spacing === 1 && c.divider).length,2);
+  assert.match(box.components.at(-1).content, /<@123456789012345678>/);
+  assert.match(box.components.at(-1).content, /WIB/);
   await bulk('789 | Lagu C\n123 | Nama lain');
   assert.equal(count(), 2);
+  assert.deepEqual(metadata(), first);
   await interact('', {
     customId: 'music:pick',
     isStringSelectMenu: () => true,
@@ -97,7 +111,8 @@ test('modal bulk, panel publik, rollback duplikat, pilihan privat, salin dan hap
   assert.equal(reply.flags, MessageFlags.Ephemeral);
   await interact('', { customId: 'music:copy', isButton: () => true, message: { content: reply.content } });
   assert.deepEqual(reply.content.split('\n').sort(), ['123', '456']);
-  await interact('delete');
+  await interact('delete', {user:{id:'other-admin'}});
+  assert.equal(metadata().uploader, first.uploader);
   assert.equal(count(), 1);
   assert.ok(!JSON.stringify(sent.components[0].toJSON()).includes('Test'));
   await interact('add', { memberPermissions: { has: () => false } });
@@ -109,4 +124,11 @@ test('panel 21 lagu bisa berpindah ke halaman dua', () => {
   const box = music.render(songs, 1).components[0].toJSON();
   assert.match(JSON.stringify(box), /Halaman 2 \/ 2/);
   assert.ok(box.components.some((c) => c.components?.some((x) => x.options?.length === 1)));
+});
+
+test('footer katalog lama jujur, footer baru memakai hari dan jam Jakarta', () => {
+  const legacy = music.render([]).components[0].toJSON();
+  assert.match(legacy.components.at(-1).content, /Belum tercatat/);
+  const known = music.render([],0,null,{uploader:'123',updated:Date.parse('2026-11-24T19:35:00Z')});
+  assert.match(known.components[0].toJSON().components.at(-1).content, /25 November 2026, 02\.35 WIB/);
 });

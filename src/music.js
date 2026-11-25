@@ -6,6 +6,10 @@ const {
   MessageFlags: F,
   ContainerBuilder,
   TextDisplayBuilder,
+  SectionBuilder,
+  ThumbnailBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
@@ -16,6 +20,8 @@ const {
   TextInputStyle,
   escapeMarkdown,
 } = require('discord.js');
+
+const { wib } = require('./content');
 
 const nameOption = (o) =>
   o.setName('namemusic').setDescription('Nama lagu').setRequired(true).setMaxLength(80);
@@ -71,13 +77,23 @@ function parseBulk(text) {
   if (!songs.length) throw Error('Isi minimal satu lagu.');
   return songs;
 }
-function render(songs, requested = 0) {
+function render(songs, requested = 0, iconURL = null, meta = {}) {
   const pages = Math.max(1, Math.ceil(songs.length / pageSize));
   const page = Math.min(Math.max(requested, 0), pages - 1);
   const subset = songs.slice(page * pageSize, (page + 1) * pageSize);
-  const box = new ContainerBuilder().addTextDisplayComponents(
-    new TextDisplayBuilder().setContent('## Musik Roblox'),
+  const box = new ContainerBuilder();
+  const divider = () => new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true);
+  const heading = new TextDisplayBuilder().setContent('## Musik Roblox');
+  const summary = new TextDisplayBuilder().setContent(
+    songs.length + ' lagu' + (pages > 1 ? ' · Halaman ' + (page + 1) + ' / ' + pages : ''),
   );
+  if (iconURL) {
+    box.addSectionComponents(new SectionBuilder().addTextDisplayComponents(heading, summary)
+      .setThumbnailAccessory(new ThumbnailBuilder().setURL(iconURL).setDescription('Ikon server')));
+  } else {
+    box.addTextDisplayComponents(heading, summary);
+  }
+  box.addSeparatorComponents(divider());
   const names = subset.map((s, i) => page * pageSize + i + 1 + '. ' + escapeMarkdown(s.name));
   box.addTextDisplayComponents(new TextDisplayBuilder().setContent(names.join('\n') || 'Belum ada lagu.'));
   if (subset.length) {
@@ -93,9 +109,6 @@ function render(songs, requested = 0) {
     );
   }
   if (pages > 1) {
-    box.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent('Halaman ' + (page + 1) + ' / ' + pages),
-    );
     box.addActionRowComponents(
       row(
         button('music:page:' + Math.max(0, page - 1), 'Sebelumnya').setDisabled(page === 0),
@@ -103,6 +116,11 @@ function render(songs, requested = 0) {
       ),
     );
   }
+  const uploader = meta.uploader ? '<@' + meta.uploader + '>' : 'Belum tercatat';
+  const updated = meta.updated ? wib(new Date(meta.updated)) : 'Belum tercatat';
+  box.addSeparatorComponents(divider()).addTextDisplayComponents(new TextDisplayBuilder().setContent(
+    '-# Unggahan terakhir oleh ' + uploader + '\n-# Terakhir diperbarui · ' + updated,
+  ));
   return { components: [box], flags: F.IsComponentsV2, allowedMentions: quiet };
 }
 
@@ -110,10 +128,15 @@ function install(client, db) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS music_tracks(guild TEXT NOT NULL,id TEXT NOT NULL,name TEXT NOT NULL,
       key TEXT NOT NULL, PRIMARY KEY(guild,id), UNIQUE(guild,key));
+    CREATE TABLE IF NOT EXISTS music_catalog_info(guild TEXT PRIMARY KEY, uploader TEXT, updated INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS music_panels(guild TEXT PRIMARY KEY,channel TEXT NOT NULL,message TEXT NOT NULL);
   `);
   const list = (g) => db.prepare('SELECT id,name FROM music_tracks WHERE guild=? ORDER BY key').all(g);
   const panel = (g) => db.prepare('SELECT * FROM music_panels WHERE guild=?').get(g);
+  function view(g, guild, page = 0) {
+    const info = db.prepare('SELECT uploader,updated FROM music_catalog_info WHERE guild=?').get(g);
+    return render(list(g), page, guild?.iconURL({ size: 128 }), info);
+  }
   const queues = new Map();
   function queued(g, task) {
     const next = (queues.get(g) || Promise.resolve()).catch(() => {}).then(task);
@@ -125,17 +148,10 @@ function install(client, db) {
   function insert(g, songs) {
     const existing = db.prepare('SELECT id FROM music_tracks WHERE guild=? AND (id=? OR key=?)');
     const add = db.prepare('INSERT INTO music_tracks VALUES(?,?,?,?)');
-    db.exec('BEGIN IMMEDIATE');
-    try {
-      for (const [index, s] of songs.entries()) {
-        if (existing.get(g, s.id, s.key))
-          throw Error('Entri ' + (index + 1) + ': ID atau nama sudah ada (' + s.name + ').');
-        add.run(g, s.id, s.name, s.key);
-      }
-      db.exec('COMMIT');
-    } catch (e) {
-      db.exec('ROLLBACK');
-      throw e;
+    for (const [index, s] of songs.entries()) {
+      if (existing.get(g, s.id, s.key))
+        throw Error('Entri ' + (index + 1) + ': ID atau nama sudah ada (' + s.name + ').');
+      add.run(g, s.id, s.name, s.key);
     }
   }
   async function refresh(g) {
@@ -143,7 +159,7 @@ function install(client, db) {
     if (!p) return;
     try {
       const ch = await client.channels.fetch(p.channel);
-      await ch.messages.edit(p.message, render(list(g)));
+      await ch.messages.edit(p.message, view(g, ch.guild));
     } catch (e) {
       if ([10003, 10008].includes(e.code)) {
         db.prepare('DELETE FROM music_panels WHERE guild=? AND message=?').run(g, p.message);
@@ -179,9 +195,9 @@ function install(client, db) {
       }
       const sub = slash ? i.options.getSubcommand() : '';
       if (sub === 'list' || action.startsWith('music:page:')) {
-        const view = render(list(g), Number(action.split(':')[2] || 0));
-        if (!slash && i.message.flags.has(F.Ephemeral)) return await i.update(view);
-        return await i.reply({ ...view, flags: F.Ephemeral | F.IsComponentsV2 });
+        const payload = view(g, i.guild, Number(action.split(':')[2] || 0));
+        if (!slash && i.message.flags.has(F.Ephemeral)) return await i.update(payload);
+        return await i.reply({ ...payload, flags: F.Ephemeral | F.IsComponentsV2 });
       }
       if (i.isStringSelectMenu() && action === 'music:pick') {
         const ids = new Set(i.values);
@@ -231,7 +247,7 @@ function install(client, db) {
           if (!p) {
             if (![ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(i.channel?.type))
               throw Error('Pasang panel di channel teks atau pengumuman.');
-            const msg = await i.channel.send(render(list(g)));
+            const msg = await i.channel.send(view(g, i.guild));
             db.prepare('INSERT INTO music_panels VALUES(?,?,?)').run(g, i.channelId, msg.id);
             p = panel(g);
           }
@@ -240,18 +256,30 @@ function install(client, db) {
           );
         }
         let result;
-        if (sub === 'delete') {
-          const key = i.options.getString('namemusic', true).trim().toLowerCase();
-          if (!db.prepare('DELETE FROM music_tracks WHERE guild=? AND key=?').run(g, key).changes)
-            throw Error('Lagu sudah dihapus atau belum terdaftar.');
-          result = 'Lagu dihapus.';
-        } else {
-          const songs =
-            sub === 'add'
-              ? [parseRow(i.options.getString('id', true), i.options.getString('namemusic', true))]
-              : parseBulk(i.fields.getTextInputValue('songs'));
-          insert(g, songs);
-          result = songs.length + ' lagu ditambahkan.';
+        db.exec('BEGIN IMMEDIATE');
+        try {
+          if (sub === 'delete') {
+            const key = i.options.getString('namemusic', true).trim().toLowerCase();
+            if (!db.prepare('DELETE FROM music_tracks WHERE guild=? AND key=?').run(g, key).changes)
+              throw Error('Lagu sudah dihapus atau belum terdaftar.');
+            result = 'Lagu dihapus.';
+          } else {
+            const songs =
+              sub === 'add'
+                ? [parseRow(i.options.getString('id', true), i.options.getString('namemusic', true))]
+                : parseBulk(i.fields.getTextInputValue('songs'));
+            insert(g, songs);
+            result = songs.length + ' lagu ditambahkan.';
+          }
+          db.prepare(`
+            INSERT INTO music_catalog_info(guild,uploader,updated) VALUES(?,?,?)
+            ON CONFLICT(guild) DO UPDATE SET
+              uploader=COALESCE(excluded.uploader,music_catalog_info.uploader), updated=excluded.updated
+          `).run(g, sub === 'delete' ? null : i.user.id, Date.now());
+          db.exec('COMMIT');
+        } catch (e) {
+          db.exec('ROLLBACK');
+          throw e;
         }
         try {
           await refresh(g);
