@@ -43,26 +43,44 @@ async function publish(i, db, category) {
   const image = i.options.getAttachment('image');
   const extensions = {'image/png':'png','image/jpeg':'jpg','image/webp':'webp','image/gif':'gif'};
   if (image && !Object.hasOwn(extensions,image.contentType)) throw Error('Unggah gambar PNG, JPG, WebP atau GIF.');
-  const title = new TextDisplayBuilder().setContent('## ' + escapeMarkdown(category.name));
-  const hint = new TextDisplayBuilder().setContent('Tekan **Copy Loadstring**, lalu tahan pesan privat dan pilih **Salin Teks**.');
   const box = new ContainerBuilder();
-  const icon = i.guild.iconURL({size:128});
-  if (icon) box.addSectionComponents(new SectionBuilder().addTextDisplayComponents(title,hint)
-    .setThumbnailAccessory(new ThumbnailBuilder().setURL(icon)));
-  else box.addTextDisplayComponents(title,hint);
+  const text = value => new TextDisplayBuilder().setContent(value);
   const divider = () => new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small);
   const files = [];
+
   if (image) {
     const name = 'game-panel.' + extensions[image.contentType];
-    files.push({attachment:image.url,name});
-    box.addSeparatorComponents(divider()).addMediaGalleryComponents(new MediaGalleryBuilder()
-      .addItems(new MediaGalleryItemBuilder().setURL('attachment://'+name)));
+    files.push({ attachment: image.url, name });
+    box.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(
+      new MediaGalleryItemBuilder().setURL('attachment://' + name).setDescription('Gambar ' + category.name),
+    ));
   }
-  const buttons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('game:copy:'+i.id)
-    .setLabel('Copy Loadstring').setStyle(ButtonStyle.Secondary));
-  if (target) buttons.addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel(label || 'Buka tujuan').setURL(target));
-  box.addSeparatorComponents(divider()).addActionRowComponents(buttons)
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent('-# Diunggah oleh <@'+i.user.id+'> · '+wib(new Date(i.createdTimestamp))));
+
+  const heading = [
+    text('-# Loadstring Roblox'),
+    text('# ' + escapeMarkdown(category.name)),
+  ];
+  const icon = i.guild.iconURL({ size: 128 });
+  if (icon) {
+    box.addSectionComponents(new SectionBuilder().addTextDisplayComponents(...heading)
+      .setThumbnailAccessory(new ThumbnailBuilder().setURL(icon).setDescription('Ikon server')));
+  } else {
+    box.addTextDisplayComponents(...heading);
+  }
+
+  const buttons = new ActionRowBuilder().addComponents(new ButtonBuilder()
+    .setCustomId('game:copy:' + i.id).setLabel('Copy Loadstring').setStyle(ButtonStyle.Secondary));
+  if (target) {
+    buttons.addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link)
+      .setLabel(label || 'Buka tujuan').setURL(target));
+  }
+  box.addSeparatorComponents(divider())
+    .addTextDisplayComponents(text('Untuk menyalin, tahan pesan privat yang muncul lalu pilih **Salin Teks**.'))
+    .addActionRowComponents(buttons)
+    .addSeparatorComponents(divider())
+    .addTextDisplayComponents(text(
+      '-# Diunggah oleh <@' + i.user.id + '>\n-# ' + wib(new Date(i.createdTimestamp)),
+    ));
   box.toJSON();
   // Save first so buttons work immediately, including after an ambiguous send response.
   db.prepare('INSERT INTO game_copy_panels VALUES(?,?,?,?)').run(i.id,i.guildId,i.channelId,source);
