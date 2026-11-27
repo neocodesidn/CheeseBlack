@@ -128,9 +128,9 @@ test('panel 21 lagu bisa berpindah ke halaman dua', () => {
 
 test('footer katalog lama jujur, footer baru memakai hari dan jam Jakarta', () => {
   const legacy = music.render([]).components[0].toJSON();
-  assert.match(legacy.components.at(-1).content, /Belum tercatat/);
+  assert.match(legacy.components.at(-1).content, /Uploaded by Unknown · Updated Unknown/);
   const known = music.render([],0,null,{uploader:'123',updated:Date.parse('2026-11-24T19:35:00Z')});
-  assert.match(known.components[0].toJSON().components.at(-1).content, /25 November 2026, 02\.35 WIB/);
+  assert.match(known.components[0].toJSON().components.at(-1).content, /^-# Uploaded by <@123> · Updated 25 Nov 2026, 02:35 WIB$/);
 });
 
 test('database lama: pindah kategori mempertahankan ID, panel, uploader, dan data server lain setelah restart', async () => {
@@ -176,4 +176,17 @@ test('database lama: pindah kategori mempertahankan ID, panel, uploader, dan dat
     assert.deepEqual({...song('A')},{guild:'A',id:'123',name:'Lagu lama',key:'lagu lama',category:'Galau'});
     assert.equal(db.prepare('SELECT message FROM music_panels').get().message,'message');
   } finally {db.close();rmSync(folder,{recursive:true});}
+});
+
+test('panel mobile menampilkan 8 judul, semua pilihan lagu dan kategori di bagian atas', () => {
+  const songs = Array.from({length:13}, (_,i)=>({id:String(i+1),name:'Track '+(i+1)}));
+  const parts=music.render(songs,0,null,{},'DJ',[{category:'DJ',total:13}]).components[0].toJSON().components;
+  const filter=parts.findIndex(x=>x.components?.some(y=>y.custom_id==='music:filter'));
+  const preview=parts.findIndex(x=>x.content?.includes('Track 1'));
+  assert.ok(filter>=0 && filter<preview);
+  assert.match(parts[preview].content,/\+5 lagu lainnya/);
+  assert.doesNotMatch(parts[preview].content,/Track 9/);
+  const picker=parts.flatMap(x=>x.components||[]).find(y=>y.custom_id==='music:pick');
+  assert.equal(picker.options.length,13);
+  assert.equal(picker.max_values,13);
 });

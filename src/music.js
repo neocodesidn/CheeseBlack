@@ -21,7 +21,10 @@ const {
   escapeMarkdown,
 } = require('discord.js');
 
-const { wib } = require('./content');
+const footerDate = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', year: 'numeric',
+  hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+});
 
 const nameOption = (o) =>
   o.setName('namemusic').setDescription('Nama lagu').setRequired(true).setMaxLength(80);
@@ -88,15 +91,15 @@ function parseBulk(text) {
   if (!songs.length) throw Error('Isi minimal satu lagu.');
   return songs;
 }
-function render(songs, requested = 0, iconURL = null, meta = {}, category = null) {
+function render(songs, requested = 0, iconURL = null, meta = {}, category = null, groups = []) {
   const pages = Math.max(1, Math.ceil(songs.length / pageSize));
   const page = Math.min(Math.max(requested, 0), pages - 1);
   const subset = songs.slice(page * pageSize, (page + 1) * pageSize);
   const box = new ContainerBuilder();
   const divider = () => new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true);
-  const heading = new TextDisplayBuilder().setContent('## Musik Roblox');
+  const heading = new TextDisplayBuilder().setContent('## Roblox Music');
   const summary = new TextDisplayBuilder().setContent(
-    (category ? escapeMarkdown(category) + ' · ' : '') + songs.length + ' lagu' + (pages > 1 ? ' · Halaman ' + (page + 1) + ' / ' + pages : ''),
+    (category ? escapeMarkdown(category) : 'Semua kategori') + ' · ' + songs.length + ' lagu' + (pages > 1 ? ' · Halaman ' + (page + 1) + ' / ' + pages : ''),
   );
   if (iconURL) {
     box.addSectionComponents(new SectionBuilder().addTextDisplayComponents(heading, summary)
@@ -104,8 +107,24 @@ function render(songs, requested = 0, iconURL = null, meta = {}, category = null
   } else {
     box.addTextDisplayComponents(heading, summary);
   }
+  if (groups.length > 0 && groups.length <= 24) {
+    const options = [{ label: 'Semua lagu', value: 'all', default: !category }];
+    for (const group of groups) options.push({
+      label: group.category, value: 'c:' + group.category,
+      description: group.total + ' lagu', default: group.category === category,
+    });
+    box.addActionRowComponents(row(new StringSelectMenuBuilder().setCustomId('music:filter')
+      .setPlaceholder('Pilih kategori').addOptions(options)));
+  } else if (groups.length > 24) {
+    box.addActionRowComponents(row(button('music:categories:0', 'Pilih kategori')));
+  }
   box.addSeparatorComponents(divider());
-  const names = subset.map((s, i) => page * pageSize + i + 1 + '. ' + escapeMarkdown(s.name));
+  const previewCount = 8;
+  const names = subset.slice(0, previewCount).map((song, index) => {
+    const number = String(page * pageSize + index + 1).padStart(2, '0');
+    return '`' + number + '`  ' + escapeMarkdown(song.name);
+  });
+  if (subset.length > previewCount) names.push('-# +' + (subset.length - previewCount) + ' lagu lainnya di menu pilihan');
   box.addTextDisplayComponents(new TextDisplayBuilder().setContent(names.join('\n') || 'Belum ada lagu.'));
   if (subset.length) {
     box.addActionRowComponents(
@@ -119,19 +138,17 @@ function render(songs, requested = 0, iconURL = null, meta = {}, category = null
       ),
     );
   }
-  const navigation = row(button('music:categories:0', 'Pilih kategori'));
   if (pages > 1) {
     const suffix = category ? ':' + category : '';
-    navigation.addComponents(
+    box.addActionRowComponents(row(
       button('music:page:' + Math.max(0, page - 1) + suffix, 'Sebelumnya').setDisabled(page === 0),
       button('music:page:' + (page + 1) + suffix, 'Berikutnya').setDisabled(page === pages - 1),
-    );
+    ));
   }
-  box.addActionRowComponents(navigation);
-  const uploader = meta.uploader ? '<@' + meta.uploader + '>' : 'Belum tercatat';
-  const updated = meta.updated ? wib(new Date(meta.updated)) : 'Belum tercatat';
+  const uploader = meta.uploader ? '<@' + meta.uploader + '>' : 'Unknown';
+  const updated = meta.updated ? footerDate.format(new Date(meta.updated)) + ' WIB' : 'Unknown';
   box.addSeparatorComponents(divider()).addTextDisplayComponents(new TextDisplayBuilder().setContent(
-    '-# Unggahan terakhir oleh ' + uploader + '\n-# Terakhir diperbarui · ' + updated,
+    '-# Uploaded by ' + uploader + ' · Updated ' + updated,
   ));
   return { components: [box], flags: F.IsComponentsV2, allowedMentions: quiet };
 }
@@ -176,7 +193,7 @@ function install(client, db) {
   function view(g, guild, page = 0, category = null) {
     const info = db.prepare('SELECT uploader,updated FROM music_catalog_info WHERE guild=?').get(g);
     const songs = list(g);
-    return render(category ? songs.filter(s=>s.category===category) : songs, page, guild?.iconURL({ size: 128 }), info, category);
+    return render(category ? songs.filter(s=>s.category===category) : songs, page, guild?.iconURL({ size: 128 }), info, category, categories(g));
   }
   const queues = new Map();
   function queued(g, task) {
